@@ -24,6 +24,38 @@ The runner does not know what the agent does. It fires on a schedule, runs a con
 
 All intelligence lives in the agent + prompt file. The runner is the alarm clock, tape recorder, and control panel.
 
+## How it compares
+
+Local scheduled AI agent runners are an active indie space — several strong solo and small-team projects tackle the same problem from different angles. None of these are backed by big platforms; they're built by developers solving the same "run my agent while I sleep" itch. They're all worth a look depending on what you need.
+
+| | **Go Agent Runner** | [Junior](https://github.com/JHostalek/junior) | [cronai](https://github.com/islo-labs/cronai) | [kage](https://github.com/igtm/kage) | [crnd](https://github.com/ysm-dev/crnd) | [schedx](https://github.com/Alireza29675/schedx) |
+|---|---|---|---|---|---|---|
+| **Runtime** | Single Go binary | Go binary | Node.js | Shell + OS scheduler | Bun | Rust binary |
+| **Agent support** | Any shell command | Claude Code | Claude Code | Many CLIs | Any command | Shell + `--prompt` |
+| **Config model** | Per-workspace `runner.yaml` | Repo + natural-language schedules | Project `cronai.yml` | Markdown tasks in repo | TOML job definitions | `schedx.yaml` + `~/.schedx/` |
+| **Background mode** | Own daemon (`start`/`stop`) | Persistent daemon | Persistent daemon | OS cron / launchd | Persistent daemon | File-based (no daemon) |
+| **Prompt handling** | Passes file through unchanged | Agent-driven task queue | Inline YAML prompts | Markdown task body | Command args | First-class `--prompt` |
+| **Git worktrees** | No (agent decides) | Built-in isolation + merge-back | No | No | No | No |
+| **Integrations** | None (by design) | MCP, Slack, Linear, etc. | GitHub, Linear, Slack | None | Agent skill system | Agent skill system |
+| **TUI dashboard** | Planned | Yes | Yes | CLI only | CLI + JSON | CLI + JSON |
+| **Scope** | Scheduler + supervisor only | Full autonomous dev platform | Cron manager for Claude | Ultra-light OS-native layer | Agent-friendly cron daemon | General local scheduler |
+
+### What makes this project different
+
+Go Agent Runner is not trying to be the most capable tool in the table. It's trying to be the **smallest correct tool** for one job: fire an agent on a schedule and record what happened.
+
+1. **The runner is dumb on purpose** — It never parses your prompt, picks tasks, manages handoffs, or encodes agent logic. `bootstrap.md` is the entire contract. You can change what the agent does without touching the runner.
+
+2. **Truly agent-agnostic** — Not locked to Claude Code or Cursor. If it runs in a shell, it runs here. Swap `agent` for `claude`, `cursor-agent`, or `./my-script.sh` in `runner.yaml`.
+
+3. **Workspace-local, not global** — Each folder gets its own `runner.yaml`, schedule, and `.runner/` state. Three projects, three schedules, no shared daemon config to manage.
+
+4. **Zero integration surface** — No GitHub OAuth, no Slack webhooks, no MCP wiring in the runner. Integrations live in your agent and prompt, where they belong.
+
+5. **One binary, no runtime** — No Node, Bun, or Docker. Build or install once, use everywhere on your Mac.
+
+**Pick Junior or cronai** if you want a full autonomous coding platform or Claude-native cron management with a TUI today. **Pick kage** if you want zero idle memory via OS schedulers. **Pick Go Agent Runner** if you want the thinnest possible layer between a clock and whatever agent CLI you already use.
+
 ## Installation
 
 **From source (recommended during development):**
@@ -176,4 +208,4 @@ Runner never requires `.agent/`, `task.md`, or git. Those are optional conventio
 
 ## License
 
-No license file is included yet. Add one before distributing.
+[MIT Non-Commercial License](LICENSE) — free to use, modify, and distribute for non-commercial purposes. Commercial use is not permitted.
