@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/robfig/cron/v3"
+
+	"github.com/aramidefemi/go-agent-runner/internal/control"
 )
 
 const (
@@ -68,11 +70,15 @@ func (s *Scheduler) runInterval(ctx context.Context) error {
 	ticker := time.NewTicker(s.config.Interval)
 	defer ticker.Stop()
 
+	triggerCh := s.watchTriggers(ctx)
+
 	for {
 		select {
 		case <-ctx.Done():
 			return s.handleShutdown(ctx)
 		case <-ticker.C:
+			s.runTickIfAllowed(ctx)
+		case <-triggerCh:
 			s.runTickIfAllowed(ctx)
 		}
 	}
@@ -86,6 +92,7 @@ func (s *Scheduler) runCron(ctx context.Context) error {
 
 	location := time.Local
 	nextDue := schedule.Next(time.Now().In(location))
+	triggerCh := s.watchTriggers(ctx)
 
 	for {
 		waitFor := time.Until(nextDue)
@@ -99,6 +106,9 @@ func (s *Scheduler) runCron(ctx context.Context) error {
 			timer.Stop()
 			return s.handleShutdown(ctx)
 		case <-timer.C:
+		case <-triggerCh:
+			s.runTickIfAllowed(ctx)
+			continue
 		}
 
 		now := time.Now().In(location)
@@ -175,6 +185,28 @@ func (s *Scheduler) recordTick(ctx context.Context) {
 
 func (s *Scheduler) isEnabled() bool {
 	return s.config.Enabled
+}
+
+func (s *Scheduler) watchTriggers(ctx context.Context) <-chan struct{} {
+	ch := make(chan struct{}, 1)
+	go func() {
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if control.ConsumeTrigger(s.config.WorkspaceRoot) {
+					select {
+					case ch <- struct{}{}:
+					default:
+					}
+				}
+			}
+		}
+	}()
+	return ch
 }
 
 func normalizeConfig(in Config) Config {

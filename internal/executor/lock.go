@@ -11,11 +11,13 @@ import (
 
 const lockFilePath = ".runner/runner.lock"
 
-type LockFile struct {
+type LockInfo struct {
 	PID       int    `json:"pid"`
 	RunID     string `json:"run_id"`
 	StartedAt string `json:"started_at"`
 }
+
+type LockFile = LockInfo
 
 func Acquire(workspace string, runID string, startedAt time.Time) error {
 	lockPath := filepath.Join(workspace, lockFilePath)
@@ -51,12 +53,24 @@ func Release(workspace string) error {
 	return err
 }
 
-func readLockFile(path string) (*LockFile, error) {
+func ReadLock(workspace string) (*LockInfo, error) {
+	lockPath := filepath.Join(workspace, lockFilePath)
+	return readLockFile(lockPath)
+}
+
+func IsLockAlive(lock *LockInfo) bool {
+	if lock == nil {
+		return false
+	}
+	return isPIDAlive(lock.PID)
+}
+
+func readLockFile(path string) (*LockInfo, error) {
 	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	var lock LockFile
+	var lock LockInfo
 	if err := json.Unmarshal(bytes, &lock); err != nil {
 		return nil, err
 	}

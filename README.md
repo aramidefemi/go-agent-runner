@@ -37,7 +37,7 @@ Local scheduled AI agent runners are an active indie space — several strong so
 | **Prompt handling** | Passes file through unchanged | Agent-driven task queue | Inline YAML prompts | Markdown task body | Command args | First-class `--prompt` |
 | **Git worktrees** | No (agent decides) | Built-in isolation + merge-back | No | No | No | No |
 | **Integrations** | None (by design) | MCP, Slack, Linear, etc. | GitHub, Linear, Slack | None | Agent skill system | Agent skill system |
-| **TUI dashboard** | Planned | Yes | Yes | CLI only | CLI + JSON | CLI + JSON |
+| **TUI dashboard** | Yes | Yes | Yes | CLI only | CLI + JSON | CLI + JSON |
 | **Scope** | Scheduler + supervisor only | Full autonomous dev platform | Cron manager for Claude | Ultra-light OS-native layer | Agent-friendly cron daemon | General local scheduler |
 
 ### What makes this project different
@@ -118,9 +118,9 @@ Use `--workspace /path/to/project` on any command to target a workspace other th
 | `runner run` | Run once now in foreground (ignores schedule) |
 | `runner start` | Start background scheduler daemon |
 | `runner stop` | Stop daemon (SIGTERM) |
-| `runner status` | Daemon up/down, last tick, last run summary |
+| `runner status` | Daemon up/down, next run, last run — opens TUI when terminal is interactive |
 | `runner logs [run-id]` | Tail log file (latest run if ID omitted) |
-| `runner tui` | Interactive dashboard *(placeholder — use `status` and `logs` for now)* |
+| `runner tui` | Interactive dashboard (same as `runner status` in a TTY) |
 
 **Global flag:** `--workspace <path>` — workspace root (default: current directory)
 

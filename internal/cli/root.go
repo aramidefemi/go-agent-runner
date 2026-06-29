@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -13,12 +12,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 
 	"github.com/aramidefemi/go-agent-runner/internal/app"
 	"github.com/aramidefemi/go-agent-runner/internal/config"
 	"github.com/aramidefemi/go-agent-runner/internal/daemon"
+	"github.com/aramidefemi/go-agent-runner/internal/logs"
 	"github.com/aramidefemi/go-agent-runner/internal/store"
+	"github.com/aramidefemi/go-agent-runner/internal/tui"
 	"github.com/aramidefemi/go-agent-runner/internal/workspace"
 )
 
@@ -150,47 +152,16 @@ func NewRootCommand() *cobra.Command {
 
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "status",
-		Short: "Daemon up/down, next tick, last run summary",
+		Short: "Daemon up/down, next tick, last run summary (opens TUI when interactive)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ws, err := workspaceArg()
 			if err != nil {
 				return err
 			}
-			info, err := daemon.Status(ws)
-			if err != nil {
-				return err
+			if isatty.IsTerminal(os.Stdout.Fd()) {
+				return tui.Run(ws)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "daemon: %s\n", upDown(info.Running))
-			if info.Running {
-				fmt.Fprintf(cmd.OutOrStdout(), "pid: %d\n", info.PID)
-			}
-
-			st, err := app.OpenStore(ws)
-			if err != nil {
-				return err
-			}
-			defer st.Close()
-
-			if lastTick, _ := st.GetMeta("last_tick"); lastTick != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "last_tick: %s\n", lastTick)
-			}
-			runs, err := st.ListRuns(1)
-			if err != nil {
-				return err
-			}
-			if len(runs) > 0 {
-				latest := runs[0]
-				exit := -1
-				if latest.ExitCode != nil {
-					exit = *latest.ExitCode
-				}
-				fmt.Fprintf(cmd.OutOrStdout(), "last_run: %s exit=%d duration=%s skipped=%v\n",
-					latest.ID, exit, latest.Duration.Round(time.Millisecond), latest.Skipped)
-				if latest.SkipReason != "" {
-					fmt.Fprintf(cmd.OutOrStdout(), "skip_reason: %s\n", latest.SkipReason)
-				}
-			}
-			return nil
+			return app.PrintStatus(cmd.OutOrStdout(), ws)
 		},
 	})
 
@@ -228,7 +199,7 @@ func NewRootCommand() *cobra.Command {
 			if run.LogPath == "" {
 				return errors.New("run has no log path")
 			}
-			lines, err := tailFile(run.LogPath, 200)
+			lines, err := logs.TailLines(run.LogPath, 200)
 			if err != nil {
 				return err
 			}
@@ -239,10 +210,13 @@ func NewRootCommand() *cobra.Command {
 
 	rootCmd.AddCommand(&cobra.Command{
 		Use:   "tui",
-		Short: "Interactive dashboard (coming in M3)",
+		Short: "Interactive dashboard (attach to local state.db)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Fprintln(cmd.OutOrStdout(), "TUI not yet implemented — use runner status and runner logs")
-			return nil
+			ws, err := workspaceArg()
+			if err != nil {
+				return err
+			}
+			return tui.Run(ws)
 		},
 	})
 
@@ -298,28 +272,3 @@ func updatedOrUnchanged(updated bool) string {
 	return "unchanged"
 }
 
-func upDown(running bool) string {
-	if running {
-		return "up"
-	}
-	return "down"
-}
-
-func tailFile(path string, maxLines int) ([]string, error) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var lines []string
-	sc := bufio.NewScanner(strings.NewReader(string(b)))
-	for sc.Scan() {
-		lines = append(lines, sc.Text())
-	}
-	if err := sc.Err(); err != nil {
-		return nil, err
-	}
-	if len(lines) <= maxLines {
-		return lines, nil
-	}
-	return lines[len(lines)-maxLines:], nil
-}
